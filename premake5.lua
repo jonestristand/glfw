@@ -1,7 +1,7 @@
 project "GLFW"
   kind "StaticLib"
   language "C"
-    
+
   targetdir ("bin/" .. outputdir .. "/%{prj.name}")
     objdir ("bin-int/" .. outputdir .. "/%{prj.name}")
 
@@ -16,6 +16,30 @@ project "GLFW"
     "src/vulkan.c",
     "src/window.c"
   }
+
+  filter "system:macosx"
+    buildoptions { "-std=c11" }
+    pic "On"
+    systemversion "latest"
+    staticruntime "On"
+
+    files {
+      "src/cocoa_init.m",
+      "src/cocoa_monitor.m",
+      "src/cocoa_window.m",
+      "src/cocoa_time.c",
+      "src/posix_thread.c",
+      "src/nsgl_context.m",
+      "src/egl_context.c",
+      "src/osmesa_context.c",
+      "src/cocoa_joystick.m"
+    }
+
+    defines {
+      "_GLFW_COCOA"
+    }
+
+    linkoptions { "-framework Cocoa -framework CoreVideo -framework IOKit -framework OpenGL" }
 
   filter "system:linux"
     pic "On"
