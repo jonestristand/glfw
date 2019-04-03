@@ -60,5 +60,17 @@ project "GLFW"
       "_CRT_SECURE_NO_WARNINGS"
     }
 
-  filter { "system:windows", "configurations:Release" }
-    buildoptions "/MT"
+filter "configurations:Debug"
+  defines "ULLR_DEBUG"
+  runtime "Debug"
+  symbols "on"
+
+filter "configurations:Release"
+  defines "ULLR_RELEASE"
+  runtime "Release"
+  optimize "on"
+
+filter "configurations:Dist"
+  defines "ULLR_DIST"
+  runtime "Release"
+  optimize "on"
