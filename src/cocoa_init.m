@@ -1,7 +1,7 @@
 //========================================================================
-// GLFW 3.3 macOS - www.glfw.org
+// GLFW 3.4 macOS - www.glfw.org
 //------------------------------------------------------------------------
-// Copyright (c) 2009-2016 Camilla Löwy <elmindreda@glfw.org>
+// Copyright (c) 2009-2019 Camilla Löwy <elmindreda@glfw.org>
 //
 // This software is provided 'as-is', without any express or implied
 // warranty. In no event will the authors be held liable for any damages
@@ -23,19 +23,14 @@
 //    distribution.
 //
 //========================================================================
+// It is fine to use C99 in this file because it will not be built with VS
+//========================================================================
 
 #include "internal.h"
 #include <sys/param.h> // For MAXPATHLEN
 
 // Needed for _NSGetProgname
 #include <crt_externs.h>
-
-#if MAC_OS_X_VERSION_MAX_ALLOWED < 101200
- #define NSEventMaskKeyUp NSKeyUpMask
- #define NSEventModifierFlagCommand NSCommandKeyMask
- #define NSEventModifierFlagControl NSControlKeyMask
- #define NSEventModifierFlagOption NSAlternateKeyMask
-#endif
 
 // Change to our application bundle's resources directory, if present
 //
@@ -436,19 +431,14 @@ static GLFWbool initializeTIS(void)
         // In case we are unbundled, make us a proper UI application
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 
-        // Menu bar setup must go between sharedApplication above and
-        // finishLaunching below, in order to properly emulate the behavior
-        // of NSApplicationMain
+        // Menu bar setup must go between sharedApplication and finishLaunching
+        // in order to properly emulate the behavior of NSApplicationMain
 
         if ([[NSBundle mainBundle] pathForResource:@"MainMenu" ofType:@"nib"])
         {
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1080
             [[NSBundle mainBundle] loadNibNamed:@"MainMenu"
                                           owner:NSApp
                                 topLevelObjects:&_glfw.ns.nibObjects];
-#else
-            [[NSBundle mainBundle] loadNibNamed:@"MainMenu" owner:NSApp];
-#endif
         }
         else
             createMenuBar();
@@ -457,9 +447,8 @@ static GLFWbool initializeTIS(void)
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
 {
-    [NSApp stop:nil];
-
     _glfwPlatformPostEmptyEvent();
+    [NSApp stop:nil];
 }
 
 - (void)applicationDidHide:(NSNotification *)notification
@@ -471,6 +460,32 @@ static GLFWbool initializeTIS(void)
 }
 
 @end // GLFWApplicationDelegate
+
+
+//////////////////////////////////////////////////////////////////////////
+//////                       GLFW internal API                      //////
+//////////////////////////////////////////////////////////////////////////
+
+void* _glfwLoadLocalVulkanLoaderNS(void)
+{
+    CFBundleRef bundle = CFBundleGetMainBundle();
+    if (!bundle)
+        return NULL;
+
+    CFURLRef url =
+        CFBundleCopyAuxiliaryExecutableURL(bundle, CFSTR("libvulkan.1.dylib"));
+    if (!url)
+        return NULL;
+
+    char path[PATH_MAX];
+    void* handle = NULL;
+
+    if (CFURLGetFileSystemRepresentation(url, true, (UInt8*) path, sizeof(path) - 1))
+        handle = _glfw_dlopen(path);
+
+    CFRelease(url);
+    return handle;
+}
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -486,9 +501,6 @@ int _glfwPlatformInit(void)
     [NSThread detachNewThreadSelector:@selector(doNothing:)
                              toTarget:_glfw.ns.helper
                            withObject:nil];
-
-    if (NSApp)
-        _glfw.ns.finishedLaunching = GLFW_TRUE;
 
     [NSApplication sharedApplication];
 
@@ -542,6 +554,10 @@ int _glfwPlatformInit(void)
     _glfwInitJoysticksNS();
 
     _glfwPollMonitorsNS();
+
+    if (![[NSRunningApplication currentApplication] isFinishedLaunching])
+        [NSApp run];
+
     return GLFW_TRUE;
 
     } // autoreleasepool
@@ -596,7 +612,7 @@ void _glfwPlatformTerminate(void)
 
 const char* _glfwPlatformGetVersionString(void)
 {
-    return _GLFW_VERSION_NUMBER " Cocoa NSGL"
+    return _GLFW_VERSION_NUMBER " Cocoa NSGL EGL OSMesa"
 #if defined(_GLFW_BUILD_DLL)
         " dynamic"
 #endif
